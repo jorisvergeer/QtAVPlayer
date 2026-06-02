@@ -15,6 +15,9 @@
 #if defined(Q_OS_WIN)
 #include "qavhwdevice_d3d11_p.h"
 #endif
+#if defined(QT_AVPLAYER_DRM_PRIME) && QT_CONFIG(egl)
+#include "qavhwdevice_drmprime_p.h"
+#endif
 
 static const char *vertexShaderProgram = R"(
     attribute highp vec4 vertexCoordArray;
@@ -372,6 +375,38 @@ void QAVWidget_OpenGLPrivate::initTextureInfo<AV_PIX_FMT_NV12>()
 }
 
 template<>
+void QAVWidget_OpenGLPrivate::initTextureInfo<AV_PIX_FMT_DRM_PRIME>()
+{
+    Q_Q(QAVWidget_OpenGL);
+    colorMatrix = getColorMatrix(currentFrame);
+    fragmentProgram = nvPlanarShaderProgram;
+    textureCount = 2;
+    if (currentFrame.handleType() != QAVVideoFrame::GLTextureHandle) {
+        qWarning() << "DRM PRIME frame does not provide a GL texture handle";
+        return;
+    }
+
+    cleanupTextures();
+    QAVHWDevice_DRMPrime device;
+    videoBuffer.reset(device.videoBuffer(currentFrame));
+    auto handle = videoBuffer->handle();
+    if (!handle.canConvert<QList<QVariant>>()) {
+        qWarning() << "DRM PRIME handle is not a texture list";
+        return;
+    }
+
+    auto textures = handle.toList();
+    if (textures.size() != 2) {
+        qWarning() << "DRM PRIME returned unexpected texture count:" << textures.size();
+        return;
+    }
+
+    textureIds[0] = textures[0].toULongLong();
+    textureIds[1] = textures[1].toULongLong();
+    planeWidth[0] = planeWidth[1] = 1;
+}
+
+template<>
 void QAVWidget_OpenGLPrivate::initTextureInfo<AV_PIX_FMT_YUYV422>()
 {
     Q_Q(QAVWidget_OpenGL);
@@ -437,7 +472,7 @@ bool QAVWidget_OpenGLPrivate::initTextureInfo()
             initTextureInfo<AV_PIX_FMT_NV12>();
             break;
         case AV_PIX_FMT_DRM_PRIME:
-            initTextureInfo<AV_PIX_FMT_NV12>();
+            initTextureInfo<AV_PIX_FMT_DRM_PRIME>();
             break;
         case AV_PIX_FMT_YUYV422:
             initTextureInfo<AV_PIX_FMT_YUYV422>();

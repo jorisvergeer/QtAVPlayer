@@ -241,10 +241,6 @@ static int setup_video_codec(const QString &inputVideoCodec, const QAVStream &st
     devices[AV_HWDEVICE_TYPE_VDPAU].reset(new QAVHWDevice_VDPAU);
     preferredDevices.push_back(AV_HWDEVICE_TYPE_VDPAU);
 #endif
-#if defined(QT_AVPLAYER_VA_DRM) && QT_CONFIG(egl)
-    devices[AV_HWDEVICE_TYPE_VAAPI].reset(new QAVHWDevice_VAAPI_DRM_EGL);
-    preferredDevices.push_back(AV_HWDEVICE_TYPE_VAAPI);
-#endif
 #if defined(QT_AVPLAYER_DRM_PRIME) && QT_CONFIG(egl)
     devices[AV_HWDEVICE_TYPE_DRM].reset(new QAVHWDevice_DRMPrime);
     preferredDevices.push_back(AV_HWDEVICE_TYPE_DRM);
@@ -275,6 +271,12 @@ static int setup_video_codec(const QString &inputVideoCodec, const QAVStream &st
             // Negotiate the devices from the video codec
             preferredDevices = QAVVideoCodec::supportedHWDevices(videoCodec);
         }
+#if defined(QT_AVPLAYER_DRM_PRIME) && QT_CONFIG(egl)
+        if (!preferredDevices.contains(AV_HWDEVICE_TYPE_DRM)) {
+            qDebug() << "[" << streamInfo.title << "] Adding DRM PRIME pseudo-device fallback";
+            preferredDevices.push_back(AV_HWDEVICE_TYPE_DRM);
+        }
+#endif
         AVBufferRef *hw_device_ctx = nullptr;
         for (auto &supported : preferredDevices) {
             auto it = devices.find(supported);
