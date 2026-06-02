@@ -436,6 +436,9 @@ bool QAVWidget_OpenGLPrivate::initTextureInfo()
         case AV_PIX_FMT_NV12:
             initTextureInfo<AV_PIX_FMT_NV12>();
             break;
+        case AV_PIX_FMT_DRM_PRIME:
+            initTextureInfo<AV_PIX_FMT_NV12>();
+            break;
         case AV_PIX_FMT_YUYV422:
             initTextureInfo<AV_PIX_FMT_YUYV422>();
             break;

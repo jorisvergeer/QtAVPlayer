@@ -21,6 +21,9 @@
 #if defined(QT_AVPLAYER_VA_DRM) && QT_CONFIG(egl)
 #include "qavhwdevice_vaapi_drm_egl_p.h"
 #endif
+#if defined(QT_AVPLAYER_DRM_PRIME) && QT_CONFIG(egl)
+#include "qavhwdevice_drmprime_p.h"
+#endif
 
 #if defined(QT_AVPLAYER_VDPAU)
 #include "qavhwdevice_vdpau_p.h"
@@ -226,6 +229,9 @@ static int setup_video_codec(const QString &inputVideoCodec, const QAVStream &st
 #endif
 #if defined(QT_AVPLAYER_VA_DRM) && QT_CONFIG(egl)
     devices.append(QSharedPointer<QAVHWDevice>(new QAVHWDevice_VAAPI_DRM_EGL));
+#endif
+#if defined(QT_AVPLAYER_DRM_PRIME) && QT_CONFIG(egl)
+    devices.append(QSharedPointer<QAVHWDevice>(new QAVHWDevice_DRMPrime));
 #endif
 #if defined(Q_OS_MACOS) || defined(Q_OS_IOS)
     devices.append(QSharedPointer<QAVHWDevice>(new QAVHWDevice_VideoToolbox));

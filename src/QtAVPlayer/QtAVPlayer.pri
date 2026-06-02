@@ -123,6 +123,14 @@ contains(DEFINES, QT_AVPLAYER_VA_DRM):qtConfig(egl) {
     SOURCES += $$PWD/qavhwdevice_vaapi_drm_egl.cpp
 }
 
+contains(DEFINES, QT_AVPLAYER_DRM_PRIME):qtConfig(egl) {
+    QMAKE_USE += egl opengl
+    exists(/usr/include/drm):INCLUDEPATH += /usr/include/drm
+    exists(/usr/include/libdrm):INCLUDEPATH += /usr/include/libdrm
+    PRIVATE_HEADERS += $$PWD/qavhwdevice_drmprime_p.h
+    SOURCES += $$PWD/qavhwdevice_drmprime.cpp
+}
+
 contains(DEFINES, QT_AVPLAYER_VDPAU) {
     QT += opengl
     PRIVATE_HEADERS += $$PWD/qavhwdevice_vdpau_p.h

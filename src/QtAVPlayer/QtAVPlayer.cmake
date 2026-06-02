@@ -5,6 +5,7 @@ endif()
 option(QT_AVPLAYER_MULTIMEDIA "Enable QtMultimedia" OFF)
 option(QT_AVPLAYER_VA_X11 "Enable libva-x11" OFF)
 option(QT_AVPLAYER_VA_DRM "Enable libva-drm" OFF)
+option(QT_AVPLAYER_DRM_PRIME "Enable DRM PRIME import" OFF)
 option(QT_AVPLAYER_VDPAU "Enable vdpau" OFF)
 option(QT_AVPLAYER_WIDGET_OPENGL "Enable widget opengl" OFF)
 option(QT_AVPLAYER_LIBASS "Enable libass" OFF)
@@ -245,6 +246,52 @@ if(QT_AVPLAYER_VA_DRM)
     set(QtAVPlayer_SOURCES
         ${QtAVPlayer_SOURCES}
         ${QT_AVPLAYER_DIR}/qavhwdevice_vaapi_drm_egl.cpp
+    )
+endif()
+
+if(QT_AVPLAYER_DRM_PRIME)
+    message(STATUS "QT_AVPLAYER_DRM_PRIME is defined")
+
+    # Search for the drm_fourcc.h file in both possible locations
+    find_path(DRM_FOURCC_H_PATH drm_fourcc.h
+            PATHS
+            /usr/include/drm
+            /usr/include/libdrm
+            NO_DEFAULT_PATH
+    )
+
+    if (DRM_FOURCC_H_PATH)
+        message(STATUS "Found drm_fourcc.h at ${DRM_FOURCC_H_PATH}")
+
+        find_path(DRM_PATH drm_fourcc.h PATHS /usr/include/drm NO_DEFAULT_PATH)
+        if (DRM_PATH AND DRM_PATH STREQUAL DRM_FOURCC_H_PATH)
+            message(STATUS "Using /usr/include/drm version of drm_fourcc.h")
+            include_directories(/usr/include/drm)
+        else()
+            message(STATUS "Using ${DRM_FOURCC_H_PATH} version of drm_fourcc.h")
+            include_directories(${DRM_FOURCC_H_PATH})
+        endif()
+    else()
+        message(FATAL_ERROR "drm_fourcc.h not found in the specified paths")
+    endif()
+
+    add_definitions(-DQT_AVPLAYER_DRM_PRIME)
+
+    find_package(OpenGL REQUIRED COMPONENTS OpenGL EGL)
+    set(QtAVPlayer_LIBS
+        ${QtAVPlayer_LIBS}
+        OpenGL::GL
+        EGL
+    )
+
+    set(QtAVPlayer_PRIVATE_HEADERS
+        ${QtAVPlayer_PRIVATE_HEADERS}
+        ${QT_AVPLAYER_DIR}/qavhwdevice_drmprime_p.h
+    )
+
+    set(QtAVPlayer_SOURCES
+        ${QtAVPlayer_SOURCES}
+        ${QT_AVPLAYER_DIR}/qavhwdevice_drmprime.cpp
     )
 endif()
 
