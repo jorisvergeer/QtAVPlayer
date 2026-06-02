@@ -388,6 +388,10 @@ public:
                     qWarning() << "DRM PRIME frame missing texture handle for plane" << plane;
                     return nullptr;
                 }
+                qDebug() << "DRM PRIME plane" << plane
+                         << "resolved rhi texture format="
+                         << texDesc->rhiTextureFormat(plane, &rhi)
+                         << "handle=" << handle;
                 planeHandles << handle;
             }
 
