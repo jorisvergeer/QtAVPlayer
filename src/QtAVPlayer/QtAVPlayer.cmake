@@ -9,6 +9,7 @@ option(QT_AVPLAYER_DRM_PRIME "Enable DRM PRIME import" OFF)
 option(QT_AVPLAYER_VDPAU "Enable vdpau" OFF)
 option(QT_AVPLAYER_WIDGET_OPENGL "Enable widget opengl" OFF)
 option(QT_AVPLAYER_LIBASS "Enable libass" OFF)
+option(QT_AVPLAYER_CUDA "Enable CUDA" OFF)
 
 find_library(AVDEVICE_LIBRARY REQUIRED NAMES avdevice)
 find_library(AVCODEC_LIBRARY REQUIRED NAMES avcodec)
@@ -60,6 +61,7 @@ set(QtAVPlayer_PRIVATE_HEADERS
     ${QT_AVPLAYER_DIR}/qavfilters_p.h
     ${QT_AVPLAYER_DIR}/qavaudioconverter_p.h
     ${QT_AVPLAYER_DIR}/qavformatcontext_p.h
+    ${QT_AVPLAYER_DIR}/qavhwdevice_cuda_p.h.h
 )
 
 set(QtAVPlayer_PUBLIC_HEADERS
@@ -114,6 +116,7 @@ set(QtAVPlayer_SOURCES
     ${QT_AVPLAYER_DIR}/qavfilters.cpp
     ${QT_AVPLAYER_DIR}/qavaudioconverter.cpp
     ${QT_AVPLAYER_DIR}/qavformatcontext.cpp
+    ${QT_AVPLAYER_DIR}/qavhwdevice_cuda.cpp
 )
 
 if(WIN32)
@@ -345,4 +348,10 @@ if(QT_AVPLAYER_LIBASS)
         ${LIBASS_LIBRARY}
     )
     add_definitions(-DQT_AVPLAYER_LIBASS)
+endif()
+
+if(QT_AVPLAYER_CUDA)
+    message(STATUS "QT_AVPLAYER_CUDA is defined")
+    find_library(LIBASS_LIBRARY REQUIRED NAMES cuda)
+    add_definitions(-DQT_AVPLAYER_CUDA)
 endif()

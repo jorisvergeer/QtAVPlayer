@@ -5,8 +5,8 @@
  * Free Qt Media Player based on FFmpeg.                       *
  ***************************************************************/
 
-#ifndef QAVVIDEOCODEC_P_H
-#define QAVVIDEOCODEC_P_H
+#ifndef QAVHWDEVICE_CUDA_P_H
+#define QAVHWDEVICE_CUDA_P_H
 
 //
 //  W A R N I N G
@@ -19,30 +19,24 @@
 // We mean it.
 //
 
-#include "qavframecodec_p.h"
-
-extern "C" {
-#include <libavutil/hwcontext.h>
-}
+#include "qavhwdevice_p.h"
+#include <memory>
 
 QT_BEGIN_NAMESPACE
 
-class QAVVideoCodecPrivate;
-class QAVHWDevice;
-class Q_AVPLAYER_EXPORT QAVVideoCodec : public QAVFrameCodec
+class Q_AVPLAYER_EXPORT QAVHWDevice_CUDA : public QAVHWDevice
 {
 public:
-    QAVVideoCodec(const AVCodec *codec = nullptr);
-    ~QAVVideoCodec();
+    QAVHWDevice_CUDA() = default;
+    ~QAVHWDevice_CUDA() = default;
 
-    void setDevice(const QSharedPointer<QAVHWDevice> &d);
-    QAVHWDevice *device() const;
-
-    static QList<AVHWDeviceType> supportedHWDevices(const AVCodec *c);
+    void init(AVCodecContext *avctx) override;
+    AVPixelFormat format() const override;
+    AVHWDeviceType type() const override;
+    QAVVideoBuffer *videoBuffer(const QAVVideoFrame &frame) const override;
 
 private:
-    Q_DISABLE_COPY(QAVVideoCodec)
-    Q_DECLARE_PRIVATE(QAVVideoCodec)
+    Q_DISABLE_COPY(QAVHWDevice_CUDA)
 };
 
 QT_END_NAMESPACE
