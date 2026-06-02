@@ -12,6 +12,7 @@
 #include "qavframe.h"
 #include "qavvideoframe.h"
 #include <QDebug>
+#include <QString>
 
 extern "C" {
 #include <libavutil/pixdesc.h>
@@ -133,6 +134,21 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
         return false;
     };
 
+    auto chooseSoftwareFormat = [&](AVPixelFormat desired, const char *label) {
+        for (auto fmt : softwareFormats) {
+            if (fmt == desired) {
+                auto dsc = av_pix_fmt_desc_get(fmt);
+                qDebug() << "Selecting" << label << "software format" << (dsc ? dsc->name : "unknown")
+                         << "(" << fmt << ")";
+                pf = fmt;
+                decStr = label;
+                return true;
+            }
+        }
+        qDebug() << "Desired software format" << label << "not offered by get_format";
+        return false;
+    };
+
     if (d->hw_device) {
         auto desired = d->hw_device->format();
         auto dsc = av_pix_fmt_desc_get(desired);
@@ -150,6 +166,16 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
             }
         }
     }
+
+#if defined(QT_AVPLAYER_DRM_PRIME)
+    const QString codecName = QString::fromLatin1(c->codec->name);
+    const bool isV4l2M2mCodec = codecName.contains(QStringLiteral("v4l2m2m"), Qt::CaseInsensitive);
+    if (isV4l2M2mCodec) {
+        qDebug() << "Codec looks like a V4L2 M2M decoder; preferring NV12 if offered";
+        if (!chooseSoftwareFormat(AV_PIX_FMT_NV12, "nv12") && (pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_NONE))
+            chooseHardwareFormat(AV_PIX_FMT_DRM_PRIME, "drm-prime");
+    }
+#endif
 
 #if defined(QT_AVPLAYER_DRM_PRIME)
     if (pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_NONE) {
