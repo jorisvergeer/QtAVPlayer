@@ -74,6 +74,7 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
 {
     auto d = reinterpret_cast<QAVVideoCodecPrivate *>(c->opaque);
     auto supported = QAVVideoCodec::supportedHWDevices(c->codec);
+    qDebug() << "negotiate_pixel_format for codec" << c->codec->name;
     if (!supported.isEmpty()) {
         qDebug() << c->codec->name << ": supported hardware device contexts:";
         for (auto a: supported)
@@ -84,7 +85,9 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
 
     QList<AVPixelFormat> softwareFormats;
     QList<AVPixelFormat> hardwareFormats;
+    QList<AVPixelFormat> allFormats;
     for (int i = 0; f[i] != AV_PIX_FMT_NONE; ++i) {
+        allFormats.append(f[i]);
         if (!isSoftwarePixelFormat(f[i])) {
             hardwareFormats.append(f[i]);
             continue;
@@ -92,7 +95,13 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
         softwareFormats.append(f[i]);
     }
 
-    qDebug() << "Available pixel formats:";
+    qDebug() << "get_format candidates (raw order):";
+    for (auto a : allFormats) {
+        auto dsc = av_pix_fmt_desc_get(a);
+        qDebug() << "  " << (dsc ? dsc->name : "unknown") << ": AVPixelFormat(" << a << ")";
+    }
+
+    qDebug() << "Available pixel formats (software-first classification):";
     for (auto a : softwareFormats) {
         auto dsc = av_pix_fmt_desc_get(a);
         qDebug() << "  " << dsc->name << ": AVPixelFormat(" << a << ")";
@@ -105,22 +114,58 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
 
     AVPixelFormat pf = !softwareFormats.isEmpty() ? softwareFormats[0] : AV_PIX_FMT_NONE;
     const char *decStr = "software";
+
+    qDebug() << "Initial pixel format candidate:" << (av_pix_fmt_desc_get(pf) ? av_pix_fmt_desc_get(pf)->name : "none")
+             << "(" << pf << ")";
+
+    auto chooseHardwareFormat = [&](AVPixelFormat desired, const char *label) {
+        for (auto fmt : hardwareFormats) {
+            if (fmt == desired) {
+                auto dsc = av_pix_fmt_desc_get(fmt);
+                qDebug() << "Selecting" << label << "format" << (dsc ? dsc->name : "unknown")
+                         << "(" << fmt << ")";
+                pf = fmt;
+                decStr = label;
+                return true;
+            }
+        }
+        qDebug() << "Desired hardware format" << label << "not offered by get_format";
+        return false;
+    };
+
     if (d->hw_device) {
+        auto desired = d->hw_device->format();
+        auto dsc = av_pix_fmt_desc_get(desired);
+        qDebug() << "Codec device reports desired format" << (dsc ? dsc->name : "unknown")
+                 << "(" << desired << ")";
         for (auto f : hardwareFormats) {
             if (f == d->hw_device->format()) {
                 d->hw_device->init(c);
                 pf = d->hw_device->format();
                 decStr = "hardware";
+                qDebug() << "Matched codec device to hardware format"
+                         << (av_pix_fmt_desc_get(pf) ? av_pix_fmt_desc_get(pf)->name : "unknown")
+                         << "(" << pf << ")";
                 break;
             }
         }
     }
+
+#if defined(QT_AVPLAYER_DRM_PRIME)
+    if (pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_NONE) {
+        qDebug() << "Trying DRM PRIME fallback selection";
+        chooseHardwareFormat(AV_PIX_FMT_DRM_PRIME, "drm-prime");
+    }
+#endif
 
     auto dsc = av_pix_fmt_desc_get(pf);
     if (dsc)
         qDebug() << "Using" << decStr << "decoding in" << dsc->name;
     else
         qDebug() << "None of the pixel formats";
+
+    qDebug() << "Final selected pixel format:" << (dsc ? dsc->name : "unknown")
+             << "(" << pf << ")" << "mode=" << decStr;
 
     return pf;
 }
