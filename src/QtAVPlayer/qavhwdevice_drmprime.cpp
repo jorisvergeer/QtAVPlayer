@@ -25,6 +25,18 @@ static PFNEGLCREATEIMAGEKHRPROC s_eglCreateImageKHR = nullptr;
 static PFNEGLDESTROYIMAGEKHRPROC s_eglDestroyImageKHR = nullptr;
 static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC s_glEGLImageTargetTexture2DOES = nullptr;
 
+static QString fourccToString(uint32_t fourcc)
+{
+    char text[5] = {
+        char(fourcc & 0xff),
+        char((fourcc >> 8) & 0xff),
+        char((fourcc >> 16) & 0xff),
+        char((fourcc >> 24) & 0xff),
+        '\0'
+    };
+    return QString::fromLatin1(text);
+}
+
 QT_BEGIN_NAMESPACE
 
 class QAVHWDevice_DRMPrimePrivate
@@ -107,17 +119,21 @@ public:
         const auto &layer = drm->layers[0];
         if (layer.nb_planes != 2 && layer.nb_planes != 3) {
             qWarning() << "Unsupported DRM PRIME layer plane count:" << layer.nb_planes
-                       << "format=" << Qt::hex << layer.format;
+                       << "format=" << fourccToString(layer.format) << Qt::hex << layer.format;
             return {};
         }
 
         const bool isNv12 = layer.format == DRM_FORMAT_NV12 || layer.format == DRM_FORMAT_NV21;
         const bool isYuv420 = layer.format == DRM_FORMAT_YUV420 || layer.format == DRM_FORMAT_YVU420;
         if (!isNv12 && !isYuv420) {
-            qWarning() << "Unsupported DRM PRIME layer format:" << Qt::hex << layer.format
+            qWarning() << "Unsupported DRM PRIME layer format:" << fourccToString(layer.format) << Qt::hex << layer.format
                        << "planes=" << layer.nb_planes;
             return {};
         }
+
+        qDebug() << "DRM PRIME layer format:" << fourccToString(layer.format)
+                 << Qt::hex << layer.format
+                 << "planes=" << layer.nb_planes;
 
         m_planeCount = layer.nb_planes;
 
