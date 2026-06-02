@@ -10,6 +10,7 @@
 #include "qavframe_p.h"
 #include "qavvideocodec_p.h"
 #include "qavhwdevice_p.h"
+#include <array>
 #include <QSize>
 #ifdef QT_AVPLAYER_MULTIMEDIA
     #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -259,6 +260,24 @@ private:
 using AbstractVideoBuffer = QAbstractVideoBuffer;
 #else
 using AbstractVideoBuffer = QHwVideoBuffer;
+using DmaPrimeTextureArray = std::array<std::unique_ptr<QRhiTexture>, QVideoTextureHelper::TextureDescription::maxPlanes>;
+
+class DmaPrimeVideoTextures : public QVideoFrameTextures
+{
+public:
+    explicit DmaPrimeVideoTextures(DmaPrimeTextureArray &&textures)
+        : m_textures(std::move(textures))
+    {
+    }
+
+    QRhiTexture *texture(uint plane) const override
+    {
+        return plane < static_cast<int>(m_textures.size()) ? m_textures[plane].get() : nullptr;
+    }
+
+private:
+    DmaPrimeTextureArray m_textures;
+};
 #endif
 
 class PlanarVideoBuffer : public AbstractVideoBuffer
@@ -346,9 +365,58 @@ public:
         QVideoFrameTexturesUPtr mapTextures(QRhi &rhi, QVideoFrameTexturesUPtr &/*oldTextures*/) override
         {
             m_rhi = &rhi;
+            auto *avFrame = m_frame.frame();
+            if (!avFrame || avFrame->format != AV_PIX_FMT_DRM_PRIME)
+                return nullptr;
+
+            auto *texDesc = QVideoTextureHelper::textureDescription(m_pixelFormat);
+            if (!texDesc || texDesc->nplanes <= 0)
+                return nullptr;
+
             if (m_textures.isNull())
                 m_textures = m_frame.handle(m_rhi);
-            return nullptr;
+            if (!m_textures.canConvert<QList<QVariant>>())
+                return nullptr;
+
+            const auto textureList = m_textures.toList();
+            DmaPrimeTextureArray textures;
+            for (int plane = 0; plane < texDesc->nplanes; ++plane) {
+                const quint64 handle = plane < textureList.size() ? textureList[plane].toULongLong() : 0;
+                if (!handle) {
+                    qWarning() << "DRM PRIME frame missing texture handle for plane" << plane;
+                    return nullptr;
+                }
+
+                const QSize planeSize(
+                    m_frame.size().width() / texDesc->sizeScale[plane].x,
+                    m_frame.size().height() / texDesc->sizeScale[plane].y);
+
+                auto textureFormat = texDesc->rhiTextureFormat(plane, &rhi);
+                if (textureFormat == QRhiTexture::R8
+                    && !rhi.isFeatureSupported(QRhi::RedOrAlpha8IsRed)
+                    && rhi.isTextureFormatSupported(QRhiTexture::RED_OR_ALPHA8)) {
+                    qDebug() << "Using RED_OR_ALPHA8 for DRM PRIME plane" << plane
+                             << "to match alpha-channel shader path";
+                    textureFormat = QRhiTexture::RED_OR_ALPHA8;
+                }
+
+                std::unique_ptr<QRhiTexture> tex(rhi.newTexture(textureFormat, planeSize, 1, {}));
+                if (!tex) {
+                    qWarning() << "Failed to allocate QRhiTexture for DRM PRIME plane" << plane
+                               << "format" << textureFormat << "size" << planeSize;
+                    return nullptr;
+                }
+
+                if (!tex->createFrom({handle, 0})) {
+                    qWarning() << "Failed to wrap DRM PRIME native texture for plane" << plane
+                               << "handle" << handle << "format" << textureFormat;
+                    return nullptr;
+                }
+
+                textures[plane] = std::move(tex);
+            }
+
+            return std::make_unique<DmaPrimeVideoTextures>(std::move(textures));
         }
     #endif // QT_VERSION < QT_VERSION_CHECK(6, 8, 2)
 
