@@ -246,7 +246,8 @@ static int setup_video_codec(const QString &inputVideoCodec, const QAVStream &st
     preferredDevices.push_back(AV_HWDEVICE_TYPE_VAAPI);
 #endif
 #if defined(QT_AVPLAYER_DRM_PRIME) && QT_CONFIG(egl)
-    devices.append(QSharedPointer<QAVHWDevice>(new QAVHWDevice_DRMPrime));
+    devices[AV_HWDEVICE_TYPE_DRM].reset(new QAVHWDevice_DRMPrime);
+    preferredDevices.push_back(AV_HWDEVICE_TYPE_DRM);
 #endif
 #if defined(Q_OS_MACOS) || defined(Q_OS_IOS)
     devices[AV_HWDEVICE_TYPE_VIDEOTOOLBOX].reset(new QAVHWDevice_VideoToolbox);
