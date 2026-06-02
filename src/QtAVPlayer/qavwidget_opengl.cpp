@@ -121,6 +121,21 @@ static const char *nvPlanarShaderProgram = R"(
     }
 )";
 
+static const char *drmPrimePlanarShaderProgram = R"(
+    uniform sampler2D tex1;
+    uniform sampler2D tex2;
+    uniform mediump mat4 colorMatrix;
+    varying highp vec2 plane1TexCoord;
+    varying highp vec2 plane2TexCoord;
+    void main()
+    {
+        mediump float Y = texture2D(tex1, plane1TexCoord).r;
+        mediump vec2 UV = texture2D(tex2, plane2TexCoord).rg;
+        mediump vec4 color = vec4(Y, UV.x, UV.y, 1.);
+        gl_FragColor = colorMatrix * color;
+    }
+)";
+
 class QAVWidget_OpenGLPrivate
 {
     Q_DECLARE_PUBLIC(QAVWidget_OpenGL)
@@ -379,7 +394,7 @@ void QAVWidget_OpenGLPrivate::initTextureInfo<AV_PIX_FMT_DRM_PRIME>()
 {
     Q_Q(QAVWidget_OpenGL);
     colorMatrix = getColorMatrix(currentFrame);
-    fragmentProgram = nvPlanarShaderProgram;
+    fragmentProgram = drmPrimePlanarShaderProgram;
     textureCount = 2;
     if (currentFrame.handleType() != QAVVideoFrame::GLTextureHandle) {
         qWarning() << "DRM PRIME frame does not provide a GL texture handle";

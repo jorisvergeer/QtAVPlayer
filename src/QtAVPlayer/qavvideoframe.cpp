@@ -28,8 +28,10 @@
 extern "C" {
 #include <libswscale/swscale.h>
 #include <libavutil/pixdesc.h>
+#include <libavutil/hwcontext_drm.h>
 #include "libavutil/imgutils.h"
 #include <libavutil/mastering_display_metadata.h>
+#include <drm_fourcc.h>
 };
 
 QT_BEGIN_NAMESPACE
@@ -37,6 +39,29 @@ QT_BEGIN_NAMESPACE
 static const QAVVideoCodec *videoCodec(const QAVCodec *c)
 {
     return reinterpret_cast<const QAVVideoCodec *>(c);
+}
+
+static QVideoFrameFormat::PixelFormat drmPrimeVideoFormat(const AVFrame *frame)
+{
+    if (!frame || frame->format != AV_PIX_FMT_DRM_PRIME || !frame->data[0])
+        return QVideoFrameFormat::Format_NV12;
+
+    const auto *drm = reinterpret_cast<const AVDRMFrameDescriptor *>(frame->data[0]);
+    if (!drm || drm->nb_layers < 1)
+        return QVideoFrameFormat::Format_NV12;
+
+    const auto &layer = drm->layers[0];
+    switch (layer.format) {
+    case DRM_FORMAT_YUV420:
+        return QVideoFrameFormat::Format_YUV420P;
+    case DRM_FORMAT_YVU420:
+        return QVideoFrameFormat::Format_YV12;
+    case DRM_FORMAT_NV21:
+        return QVideoFrameFormat::Format_NV21;
+    case DRM_FORMAT_NV12:
+    default:
+        return QVideoFrameFormat::Format_NV12;
+    }
 }
 
 class QAVVideoFramePrivate : public QAVFramePrivate
@@ -482,7 +507,7 @@ QAVVideoFrame::operator QVideoFrame() const
             format = VideoFrame::Format_NV12;
             break;
         case AV_PIX_FMT_DRM_PRIME:
-            format = VideoFrame::Format_NV12;
+            format = drmPrimeVideoFormat(result.frame());
             break;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         case AV_PIX_FMT_MEDIACODEC:

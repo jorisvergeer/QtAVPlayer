@@ -30,7 +30,7 @@ QT_BEGIN_NAMESPACE
 class QAVHWDevice_DRMPrimePrivate
 {
 public:
-    GLuint textures[2] = {0, 0};
+    GLuint textures[3] = {0, 0, 0};
 };
 
 QAVHWDevice_DRMPrime::QAVHWDevice_DRMPrime()
@@ -78,7 +78,11 @@ public:
 
     QVariant textures() const
     {
-        return QList<QVariant>() << m_hw->textures[0] << m_hw->textures[1];
+        QList<QVariant> result;
+        for (int i = 0; i < m_planeCount; ++i) {
+            result << m_hw->textures[i];
+        }
+        return result;
     }
 
     QVariant handle(QRhi */*rhi*/) const override
@@ -101,14 +105,24 @@ public:
         }
 
         const auto &layer = drm->layers[0];
-        if (layer.format != DRM_FORMAT_NV12 || layer.nb_planes != 2) {
+        if (layer.nb_planes != 2 && layer.nb_planes != 3) {
+            qWarning() << "Unsupported DRM PRIME layer plane count:" << layer.nb_planes
+                       << "format=" << Qt::hex << layer.format;
+            return {};
+        }
+
+        const bool isNv12 = layer.format == DRM_FORMAT_NV12 || layer.format == DRM_FORMAT_NV21;
+        const bool isYuv420 = layer.format == DRM_FORMAT_YUV420 || layer.format == DRM_FORMAT_YVU420;
+        if (!isNv12 && !isYuv420) {
             qWarning() << "Unsupported DRM PRIME layer format:" << Qt::hex << layer.format
                        << "planes=" << layer.nb_planes;
             return {};
         }
 
+        m_planeCount = layer.nb_planes;
+
         if (!m_hw->textures[0]) {
-            glGenTextures(2, m_hw->textures);
+            glGenTextures(m_planeCount, m_hw->textures);
         }
 
         const EGLDisplay eglDisplay = eglGetCurrentDisplay();
@@ -117,8 +131,8 @@ public:
             return {};
         }
 
-        static const uint32_t formats[2] = { DRM_FORMAT_R8, DRM_FORMAT_GR88 };
-        for (int i = 0; i < 2; ++i) {
+        static const uint32_t formats[3] = { DRM_FORMAT_R8, DRM_FORMAT_R8, DRM_FORMAT_R8 };
+        for (int i = 0; i < m_planeCount; ++i) {
             const auto &plane = layer.planes[i];
             if (plane.object_index < 0 || plane.object_index >= drm->nb_objects) {
                 qWarning() << "Invalid DRM PRIME object index" << plane.object_index;
@@ -136,10 +150,12 @@ public:
                 return {};
             }
 
+            const int planeWidth = i == 0 ? avFrame->width : qMax(1, (avFrame->width + 1) / 2);
+            const int planeHeight = i == 0 ? avFrame->height : qMax(1, (avFrame->height + 1) / 2);
             EGLint imgAttr[] = {
                 EGL_LINUX_DRM_FOURCC_EXT, EGLint(formats[i]),
-                EGL_WIDTH, GLint(i == 0 ? avFrame->width : qMax(1, (avFrame->width + 1) / 2)),
-                EGL_HEIGHT, GLint(i == 0 ? avFrame->height : qMax(1, (avFrame->height + 1) / 2)),
+                EGL_WIDTH, GLint(planeWidth),
+                EGL_HEIGHT, GLint(planeHeight),
                 EGL_DMA_BUF_PLANE0_FD_EXT, object.fd,
                 EGL_DMA_BUF_PLANE0_OFFSET_EXT, EGLint(plane.offset),
                 EGL_DMA_BUF_PLANE0_PITCH_EXT, EGLint(plane.pitch),
@@ -176,6 +192,7 @@ public:
     }
 
     QAVHWDevice_DRMPrimePrivate *m_hw = nullptr;
+    mutable int m_planeCount = 0;
 };
 
 QAVVideoBuffer *QAVHWDevice_DRMPrime::videoBuffer(const QAVVideoFrame &frame) const
