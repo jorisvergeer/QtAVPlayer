@@ -16,6 +16,14 @@
 #include <GLES2/gl2ext.h>
 #include <drm_fourcc.h>
 
+#ifndef GL_TEXTURE_SWIZZLE_A
+#define GL_TEXTURE_SWIZZLE_A 0x8E45
+#endif
+
+#ifndef GL_RED
+#define GL_RED 0x1903
+#endif
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext_drm.h>
@@ -53,7 +61,7 @@ QAVHWDevice_DRMPrime::QAVHWDevice_DRMPrime()
 QAVHWDevice_DRMPrime::~QAVHWDevice_DRMPrime()
 {
     if (d_ptr->textures[0]) {
-        glDeleteTextures(2, d_ptr->textures);
+        glDeleteTextures(3, d_ptr->textures);
     }
 }
 
@@ -198,6 +206,13 @@ public:
             s_glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
             if (glGetError()) {
                 qWarning() << "glEGLImageTargetTexture2DOES failed for DRM PRIME plane" << i;
+            }
+
+            if (formats[i] == DRM_FORMAT_R8) {
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED);
+                if (glGetError()) {
+                    qWarning() << "Failed to swizzle DRM PRIME R8 plane alpha to red for plane" << i;
+                }
             }
 
             glBindTexture(GL_TEXTURE_2D, 0);
