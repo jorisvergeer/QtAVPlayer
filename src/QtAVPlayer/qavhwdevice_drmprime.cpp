@@ -147,7 +147,7 @@ public:
             return {};
         }
 
-        static const uint32_t formats[3] = { DRM_FORMAT_C8, DRM_FORMAT_C8, DRM_FORMAT_C8 };
+        static const uint32_t formats[3] = { DRM_FORMAT_R8, DRM_FORMAT_R8, DRM_FORMAT_R8 };
         for (int i = 0; i < m_planeCount; ++i) {
             const auto &plane = layer.planes[i];
             if (plane.object_index < 0 || plane.object_index >= drm->nb_objects) {
