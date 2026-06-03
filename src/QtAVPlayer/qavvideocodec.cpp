@@ -171,8 +171,10 @@ static AVPixelFormat negotiate_pixel_format(AVCodecContext *c, const AVPixelForm
     const QString codecName = QString::fromLatin1(c->codec->name);
     const bool isV4l2M2mCodec = codecName.contains(QStringLiteral("v4l2m2m"), Qt::CaseInsensitive);
     if (isV4l2M2mCodec) {
-        qDebug() << "Codec looks like a V4L2 M2M decoder; preferring NV12 if offered";
-        if (!chooseSoftwareFormat(AV_PIX_FMT_NV12, "nv12") && (pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_NONE))
+        qDebug() << "Codec looks like a V4L2 M2M decoder; preferring AB24 if offered";
+        if (!chooseSoftwareFormat(AV_PIX_FMT_RGBA, "ab24")
+            && !chooseSoftwareFormat(AV_PIX_FMT_NV12, "nv12")
+            && (pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_NONE))
             chooseHardwareFormat(AV_PIX_FMT_DRM_PRIME, "drm-prime");
     }
 #endif

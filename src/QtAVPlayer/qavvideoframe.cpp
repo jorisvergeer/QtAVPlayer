@@ -57,6 +57,14 @@ static QVideoFrameFormat::PixelFormat drmPrimeVideoFormat(const AVFrame *frame)
         return QVideoFrameFormat::Format_YUV420P;
     case DRM_FORMAT_YVU420:
         return QVideoFrameFormat::Format_YV12;
+    case DRM_FORMAT_ABGR8888:
+        return QVideoFrameFormat::Format_RGBA8888;
+    case DRM_FORMAT_XBGR8888:
+        return QVideoFrameFormat::Format_RGBX8888;
+    case DRM_FORMAT_ARGB8888:
+        return QVideoFrameFormat::Format_BGRA8888;
+    case DRM_FORMAT_XRGB8888:
+        return QVideoFrameFormat::Format_BGRX8888;
     case DRM_FORMAT_NV21:
         return QVideoFrameFormat::Format_NV21;
     case DRM_FORMAT_NV12:
@@ -527,6 +535,15 @@ QAVVideoFrame::operator QVideoFrame() const
 #else
             format = QVideoFrameFormat::Format_BGRA8888;
 #endif
+            break;
+        case AV_PIX_FMT_RGBA:
+            format = VideoFrame::Format_RGBA8888;
+            break;
+        case AV_PIX_FMT_ARGB:
+            format = VideoFrame::Format_ARGB8888;
+            break;
+        case AV_PIX_FMT_ABGR:
+            format = VideoFrame::Format_ABGR8888;
             break;
         case AV_PIX_FMT_YUV420P:
             format = VideoFrame::Format_YUV420P;
