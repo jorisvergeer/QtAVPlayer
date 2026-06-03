@@ -16,14 +16,6 @@
 #include <GLES2/gl2ext.h>
 #include <drm_fourcc.h>
 
-#ifndef GL_TEXTURE_SWIZZLE_A
-#define GL_TEXTURE_SWIZZLE_A 0x8E45
-#endif
-
-#ifndef GL_RED
-#define GL_RED 0x1903
-#endif
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext_drm.h>
@@ -155,7 +147,7 @@ public:
             return {};
         }
 
-        static const uint32_t formats[3] = { DRM_FORMAT_R8, DRM_FORMAT_R8, DRM_FORMAT_R8 };
+        static const uint32_t formats[3] = { DRM_FORMAT_C8, DRM_FORMAT_C8, DRM_FORMAT_C8 };
         for (int i = 0; i < m_planeCount; ++i) {
             const auto &plane = layer.planes[i];
             if (plane.object_index < 0 || plane.object_index >= drm->nb_objects) {
@@ -206,13 +198,6 @@ public:
             s_glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
             if (glGetError()) {
                 qWarning() << "glEGLImageTargetTexture2DOES failed for DRM PRIME plane" << i;
-            }
-
-            if (formats[i] == DRM_FORMAT_R8) {
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED);
-                if (glGetError()) {
-                    qWarning() << "Failed to swizzle DRM PRIME R8 plane alpha to red for plane" << i;
-                }
             }
 
             glBindTexture(GL_TEXTURE_2D, 0);
